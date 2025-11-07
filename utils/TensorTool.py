@@ -7,7 +7,7 @@ def set_state(state:torch.Tensor,x:int,y:int,target:Chess) ->None:
 
 def create_test_state():
     # create empty state
-    state = torch.zeros([WIDTH, HEIGHT, CHESS_NUM])
+    state = torch.zeros([BOARD_SIZE, BOARD_SIZE, CHESS_NUM])
     state[:, :, Chess.EMPTY] = 1
     # create latest action
     latest_action = [7, 7]
