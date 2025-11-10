@@ -1,12 +1,15 @@
 import sys
 import os
+from typing import Tuple
 from xmlrpc.client import Fault
+from random import randint
 
 import torch
 from networkx.algorithms.swap import directed_edge_swap
 from sympy import false
 from sympy.strategies.core import switch
 
+from constants import Chess
 from utils import drawOnehot, set_state
 from math import log
 
@@ -61,8 +64,10 @@ class TreeNode:
             return
         self.is_action_init = True
 
-        expand_valid_range = [[self.valid_range[0][0]-EXPLORE_EXPANSION,self.valid_range[1][0]-EXPLORE_EXPANSION],
-                                [self.valid_range[0][1]+EXPLORE_EXPANSION+1,self.valid_range[1][1]+EXPLORE_EXPANSION + 1]]
+        expand_valid_range = [[max(0,self.valid_range[0][0]-EXPLORE_EXPANSION),
+                               max(0,self.valid_range[1][0]-EXPLORE_EXPANSION)],
+                                [min(14,self.valid_range[0][1]+EXPLORE_EXPANSION + 1),
+                                 min(14,self.valid_range[1][1]+EXPLORE_EXPANSION + 1)]]
 
         priority_rules = [(PATTERN["live_four"],True),
                           (PATTERN["live_four"],False),
@@ -82,12 +87,15 @@ class TreeNode:
         #第五优先级：空位
         for i in range(expand_valid_range[0][0],expand_valid_range[1][0]):
             for j in range(expand_valid_range[0][1], expand_valid_range[1][1]):
-                if Chess.from_onehot(self.state[i,j]) == Chess.EMPTY:
-                    state = self.state.clone()
-                    set_state(state,i,j,~Chess.from_onehot(state[self.latest_action[0],self.latest_action[1]]))
-                    # #debug
-                    # drawOnehot(state)
-                    self.untried_actions.append(TreeNode(state, [i,j],parent= self,self_chess=self.self_chess))
+                try:
+                    if Chess.from_onehot(self.state[i,j]) == Chess.EMPTY:
+                        state = self.state.clone()
+                        set_state(state,i,j,~Chess.from_onehot(state[self.latest_action[0],self.latest_action[1]]))
+                        # #debug
+                        # drawOnehot(state)
+                        self.untried_actions.append(TreeNode(state, [i,j],parent= self,self_chess=self.self_chess))
+                except IndexError:
+                    print("index error:",i,j)
 
     def find_pos_by_patterns(self,patterns:list,by_self_view:bool) -> list:
         """
@@ -163,7 +171,8 @@ class TreeNode:
         if not self.is_action_init:
             self.init_untried_actions()
         if self.get_untried_actions_length() != 0:
-            return self.untried_actions.pop(0)
+            i = randint(0,len(self.untried_actions)-1)
+            return self.untried_actions.pop(i)
         print('no untried action')
         return None
 
@@ -172,7 +181,7 @@ class TreeNode:
             self.init_untried_actions()
         return len(self.untried_actions)
 
-    def apply_action(self):
+    def apply_action(self) -> 'TreeNode':
         action = self.pop_one_untried_action()
         if action is not None:
             self.child_nodes.append(action)
@@ -183,14 +192,13 @@ class TreeNode:
     def is_root(self)->bool:
         return True if self.parent is None else False
 
-    def is_terminal(self):
+    def get_terminal_player(self):
         """
         Checks if the current board state is a terminal state, meaning one of the players
         has won by forming a specific pattern on the board. The function examines all possible
         directions and positions on the board to find a winning pattern for either player.
 
-        :return: A tuple where the first element is the winning player (or None if no winner)
-                 and the second element is a boolean indicating if the game is over.
+        :return: the winning player (or None if no winner)
         """
         directions = [[1,0],[0,1],[1,1],[-1,1]]
         pattern = PATTERN["five"][0]
@@ -198,10 +206,10 @@ class TreeNode:
             for x in range(BOARD_SIZE):
                 for y in range(BOARD_SIZE):
                     if self.is_match_pattern([x,y],direction,pattern,by_self_view=True):
-                        return self.self_chess, True
+                        return self.self_chess
                     if self.is_match_pattern([x,y],direction,pattern,by_self_view=False):
-                        return ~self.self_chess, True
-        return None, False
+                        return ~self.self_chess
+        return None
 
 
     def ucb(self,all_time):
@@ -230,3 +238,12 @@ class TreeNode:
                     max_ucb = node.ucb(all_time=all_time)
                     target = node
             return target.select(all_time=all_time)
+
+    def expand(self) -> 'TreeNode':
+        return self.apply_action()
+
+    def stimulate(self) -> tuple[Chess | int | None, 'TreeNode']:
+        node = self
+        while node.get_terminal_player() is None:
+            node = node.pop_one_untried_action()
+        return node.get_terminal_player(), node

@@ -40,7 +40,6 @@ def test_get_child_node():
     assert len(node.untried_actions) == (1+EXPLORE_EXPANSION*2)**2-1-1
     assert first_child_node.state.shape == (BOARD_SIZE,BOARD_SIZE,CHESS_NUM)
     assert first_child_node.state[first_child_node.latest_action[0],first_child_node.latest_action[1],Chess.WHITE] == 1
-    assert first_child_node.latest_action == [6,6]
     assert first_child_node.parent is node
 
 def test_select_single_root():
@@ -131,13 +130,11 @@ def test_is_terminal():
     set_state(state, 4, 4, Chess.BLACK)
     latest_action = [7,7]
     node = TreeNode(state, latest_action, None, Chess.BLACK)
-    winner , is_terminal = node.is_terminal()
+    winner = node.get_terminal_player()
     assert winner is None
-    assert is_terminal == False
     set_state(state, 3, 3, Chess.BLACK)
-    winner , is_terminal = node.is_terminal()
+    winner = node.get_terminal_player()
     assert winner is Chess.BLACK
-    assert is_terminal == True
 
 def test_stimulate():
     state = create_test_state()
@@ -145,4 +142,16 @@ def test_stimulate():
     latest_action = [7,7]
     node = TreeNode(state,latest_action,None,self_chess=Chess.BLACK)
     winner , final_state= node.stimulate()
-    assert drawOnehot(final_state)
+    print(winner)
+    print(final_state.latest_action)
+    assert drawOnehot(final_state.state)
+
+def test_back_propagate():
+    state = create_test_state()
+    set_state(state, 7, 7, Chess.BLACK)
+    latest_action = [7,7]
+    node = TreeNode(state,latest_action,None,self_chess=Chess.BLACK)
+    winner, final_state = node.stimulate()
+    final_state.back_propagate()
+    assert node.visits == 1
+#todo: a tool set to monitor the tree flow

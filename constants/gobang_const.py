@@ -19,6 +19,13 @@ class Chess(IntEnum):
             return Chess.BLACK
         return Chess.EMPTY
 
+    def __str__(self):
+        if self == Chess.BLACK:
+            return 'BLACK'
+        if self == Chess.WHITE:
+            return 'WHITE'
+        return 'EMPTY'
+
     @classmethod
     def from_onehot(cls, onehot):
         if onehot[Chess.BLACK] == 1:
