@@ -105,11 +105,13 @@ def test_find_pos_by_patterns():
 
 
 
-def test_get_action_black_live_three():
+def test_get_action_black_live_four():
     state = create_test_state()
-    state[6 ,6, Chess.BLACK] = 1
-    state[5, 5, Chess.BLACK] = 1
+    set_state(state, 6, 6, Chess.BLACK)
+    set_state(state, 5, 5, Chess.BLACK)
+    set_state(state, 4, 4, Chess.BLACK)
+    set_state(state, 3, 3, Chess.WHITE)
     latest_action = [7,7]
     node = TreeNode(state,latest_action,None, Chess.BLACK)
-    assert node.pop_one_untried_action().latest_action == [4,4] or [8,8]
+    assert node.pop_one_untried_action().latest_action == [8,8]
     #todo: 修改测试为冲四，完成简单策略全部

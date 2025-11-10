@@ -49,9 +49,21 @@ class TreeNode:
 
         expand_valid_range = [[self.valid_range[0][0]-EXPLORE_EXPANSION,self.valid_range[1][0]-EXPLORE_EXPANSION],
                                 [self.valid_range[0][1]+EXPLORE_EXPANSION+1,self.valid_range[1][1]+EXPLORE_EXPANSION + 1]]
-        #第一优先级
 
-
+        priority_rules = [(PATTERN["live_four"],True),
+                          (PATTERN["live_four"],False),
+                          (PATTERN["live_three"],True),
+                          (PATTERN["live_three"],False)]
+        result = []
+        for pattern, by_self_view in priority_rules:
+            result = self.find_pos_by_patterns(pattern, by_self_view=by_self_view)
+            if len(result) != 0:
+                for pos in result:
+                    state = self.state.clone()
+                    set_state(state, pos[0], pos[1],
+                              ~Chess.from_onehot(state[self.latest_action[0], self.latest_action[1]]))
+                    self.untried_actions.append(TreeNode(state, pos, parent=self, self_chess=self.self_chess))
+                return
 
         #第五优先级：空位
         for i in range(expand_valid_range[0][0],expand_valid_range[1][0]):
