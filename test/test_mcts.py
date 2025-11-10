@@ -16,7 +16,7 @@ def test_create_tree_node():
     state = create_test_state()
     set_state(state, 7, 7, Chess.BLACK)
     #create tree node
-    node = TreeNode(state,latest_action, None,self_chess=Chess.BLACK)
+    node = TreeNode(state,latest_action, None)
 
     #test
     assert node.state.shape == (BOARD_SIZE,BOARD_SIZE,CHESS_NUM)
@@ -27,7 +27,7 @@ def test_get_child_node():
     state = create_test_state()
     set_state(state, 7, 7, Chess.BLACK)
     #create tree node
-    node = TreeNode(state,latest_action, None,self_chess=Chess.BLACK)
+    node = TreeNode(state,latest_action, None)
     #set child node
     node.apply_action()
     #get children node
@@ -46,7 +46,7 @@ def test_select_single_root():
     state = create_test_state()
     set_state(state, 7, 7, Chess.BLACK)
     latest_action= [7,7]
-    root = TreeNode(state,latest_action,None,self_chess=Chess.BLACK)
+    root = TreeNode(state,latest_action,None)
     root.apply_action()
     selected = root.select(all_time=2)
     assert selected is root
@@ -55,7 +55,7 @@ def test_select_by_ucb():
     state = create_test_state()
     set_state(state, 7, 7, Chess.BLACK)
     latest_action = [7,7]
-    root = TreeNode(state,latest_action,None,self_chess=Chess.BLACK)
+    root = TreeNode(state,latest_action,None)
     root.visits = 1
     root.value = 1
     child1 = root.apply_action()
@@ -79,9 +79,9 @@ def test_match_pattern_by_self_view():
     set_state(state,4, 4, Chess.BLACK)
     set_state(state,3, 3, Chess.WHITE)
     latest_action = [7,7]
-    node = TreeNode(state,latest_action,None,self_chess=Chess.BLACK)
-    assert node.is_match_pattern([4,4], [1,1], PATTERN['live_four'][0],True) == True
-    assert node.is_match_pattern([3,3], [1,1], PATTERN['live_three'][0],True) == False
+    node = TreeNode(state,latest_action,None)
+    assert node.is_match_pattern([4,4], [1,1], PATTERN['live_four'][0],Chess.BLACK) == True
+    assert node.is_match_pattern([3,3], [1,1], PATTERN['live_three'][0],Chess.BLACK) == False
 
 def test_match_pattern_by_opponent_view():
     state = create_test_state()
@@ -91,9 +91,9 @@ def test_match_pattern_by_opponent_view():
     set_state(state,4, 4, Chess.BLACK)
     set_state(state,3, 3, Chess.WHITE)
     latest_action = [7,7]
-    node = TreeNode(state,latest_action,None,self_chess=Chess.WHITE)
-    assert node.is_match_pattern([4,4], [1,1], PATTERN['live_four'][0],True) == False
-    assert node.is_match_pattern([4,4], [1,1], PATTERN['live_four'][0],False) == True
+    node = TreeNode(state,latest_action,None)
+    assert node.is_match_pattern([4,4], [1,1], PATTERN['live_four'][0],Chess.BLACK) == False
+    assert node.is_match_pattern([4,4], [1,1], PATTERN['live_four'][0],Chess.WHITE) == True
 
 def test_find_pos_by_patterns():
     state = create_test_state()
@@ -105,9 +105,9 @@ def test_find_pos_by_patterns():
     set_state(state, 4, 5, Chess.BLACK)
     set_state(state, 4, 6, Chess.BLACK)
     latest_action = [7, 7]
-    node = TreeNode(state, latest_action, None, self_chess=Chess.WHITE)
-    assert node.find_pos_by_patterns(PATTERN['live_four'],False) == [[8,8]]
-    assert node.find_pos_by_patterns(PATTERN['live_three'],False) == [[4,3],[4,7]]
+    node = TreeNode(state, latest_action, None)
+    assert node.find_pos_by_patterns(PATTERN['live_four'],Chess.WHITE) == [[8,8]]
+    assert node.find_pos_by_patterns(PATTERN['live_three'],Chess.WHITE) == [[4,3],[4,7]]
 
 
 
@@ -119,7 +119,7 @@ def test_get_action_black_live_four():
     set_state(state, 4, 4, Chess.BLACK)
     set_state(state, 3, 3, Chess.WHITE)
     latest_action = [7,7]
-    node = TreeNode(state,latest_action,None, Chess.BLACK)
+    node = TreeNode(state,latest_action,None)
     assert node.pop_one_untried_action().latest_action == [8,8]
 
 def test_is_terminal():
@@ -129,7 +129,7 @@ def test_is_terminal():
     set_state(state, 5, 5, Chess.BLACK)
     set_state(state, 4, 4, Chess.BLACK)
     latest_action = [7,7]
-    node = TreeNode(state, latest_action, None, Chess.BLACK)
+    node = TreeNode(state, latest_action, None)
     winner = node.get_terminal_player()
     assert winner is None
     set_state(state, 3, 3, Chess.BLACK)
@@ -140,7 +140,7 @@ def test_stimulate():
     state = create_test_state()
     set_state(state, 7, 7, Chess.BLACK)
     latest_action = [7,7]
-    node = TreeNode(state,latest_action,None,self_chess=Chess.BLACK)
+    node = TreeNode(state,latest_action,None)
     winner , final_state= node.stimulate()
     print(winner)
     print(final_state.latest_action)
@@ -148,10 +148,18 @@ def test_stimulate():
 
 def test_back_propagate():
     state = create_test_state()
-    set_state(state, 7, 7, Chess.BLACK)
+    set_state(state, 7, 7, Chess.WHITE)
     latest_action = [7,7]
-    node = TreeNode(state,latest_action,None,self_chess=Chess.BLACK)
-    winner, final_state = node.stimulate()
-    final_state.back_propagate()
-    assert node.visits == 1
+    root = TreeNode(state,latest_action,None)
+    node1 = root.pop_one_untried_action()
+    node2 = node1.pop_one_untried_action()
+    drawOnehot(node2.state)
+    node2.back_propagate(winner=Chess.BLACK)
+    assert node2.visits == 1
+    assert node1.visits == 1
+    assert root.visits == 1
+    assert node2.value ==0
+    assert node1.value == 1
+    assert root.value == 0
+#todo: to fix restructuring bugs and pass test_back_propagate
 #todo: a tool set to monitor the tree flow

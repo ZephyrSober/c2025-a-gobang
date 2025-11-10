@@ -20,12 +20,11 @@ sys.path.insert(0, project_root)
 from constants import *
 
 class TreeNode:
-    def __init__(self, state:torch.Tensor, latest_action:list, parent:'TreeNode', self_chess: Chess):
+    def __init__(self, state:torch.Tensor, latest_action:list, parent:'TreeNode'):
         self.state = state
         self.valid_range = [[7,7],[7,7]]
         self.parent = parent
         self.latest_action = latest_action
-        self.self_chess = self_chess
 
         self.child_nodes = []
         self.untried_actions = []
@@ -69,19 +68,20 @@ class TreeNode:
                                 [min(14,self.valid_range[0][1]+EXPLORE_EXPANSION + 1),
                                  min(14,self.valid_range[1][1]+EXPLORE_EXPANSION + 1)]]
 
-        priority_rules = [(PATTERN["live_four"],True),
-                          (PATTERN["live_four"],False),
-                          (PATTERN["live_three"],True),
-                          (PATTERN["live_three"],False)]
+        self_chess = Chess.from_onehot(self.state[self.latest_action[0],self.latest_action[1]])
+        priority_rules = [(PATTERN["live_four"],self_chess),
+                          (PATTERN["live_four"],~self_chess),
+                          (PATTERN["live_three"],self_chess),
+                          (PATTERN["live_three"],~self_chess)]
         result = []
-        for pattern, by_self_view in priority_rules:
-            result = self.find_pos_by_patterns(pattern, by_self_view=by_self_view)
+        for pattern, chess_to_judge in priority_rules:
+            result = self.find_pos_by_patterns(pattern, chess_to_judge)
             if len(result) != 0:
                 for pos in result:
                     state = self.state.clone()
                     set_state(state, pos[0], pos[1],
                               ~Chess.from_onehot(state[self.latest_action[0], self.latest_action[1]]))
-                    self.untried_actions.append(TreeNode(state, pos, parent=self, self_chess=self.self_chess))
+                    self.untried_actions.append(TreeNode(state, pos, parent=self))
                 return
 
         #第五优先级：空位
@@ -93,11 +93,11 @@ class TreeNode:
                         set_state(state,i,j,~Chess.from_onehot(state[self.latest_action[0],self.latest_action[1]]))
                         # #debug
                         # drawOnehot(state)
-                        self.untried_actions.append(TreeNode(state, [i,j],parent= self,self_chess=self.self_chess))
+                        self.untried_actions.append(TreeNode(state, [i,j],parent= self))
                 except IndexError:
                     print("index error:",i,j)
 
-    def find_pos_by_patterns(self,patterns:list,by_self_view:bool) -> list:
+    def find_pos_by_patterns(self,patterns:list,self_chess) -> list:
         """
         Finds positions on the board that match given patterns.
 
@@ -110,10 +110,10 @@ class TreeNode:
 
         :param patterns: A list of string patterns to search for on the board.
         :type patterns: list
-        :param by_self_view: A boolean indicating whether to search from the
+        :param self_chess: A boolean indicating whether to search from the
                              perspective of the current player (`True`) or the
                              opponent (`False`).
-        :type by_self_view: bool
+        :type self_chess: Chess
         :return: A list of [x, y] coordinate pairs where the target 't' in the
                  patterns is found on the board.
         :rtype: list
@@ -124,20 +124,20 @@ class TreeNode:
             for pattern in patterns:
                 for x in range(BOARD_SIZE):
                     for y in range(BOARD_SIZE):
-                        if self.is_match_pattern([x,y],direction,pattern,by_self_view=by_self_view):
+                        if self.is_match_pattern([x,y],direction,pattern,self_chess):
                             for i,p in enumerate(pattern):
                                 if p == 't':
                                     result.append([x+i*direction[0],y+i*direction[1]])
         return result
 
-    def is_match_pattern(self,pos,direction,pattern:str,by_self_view:bool) -> bool:
+    def is_match_pattern(self,pos,direction,pattern:str,self_chess: Chess) -> bool:
         """
         Checks if the given pattern matches the chess pieces in the specified direction from the starting position.
 
         :param pos: The starting position as a tuple (x, y).
         :param direction: The direction to check the pattern as a tuple (dx, dy).
         :param pattern: A string representing the pattern of chess pieces.
-        :param by_self_view: A boolean indicating whether to use the self view for matching.
+        :param self_chess: A Chess enum to indicate what represent 'c'.
         :returns: True if the pattern matches, False otherwise.
         :rtype: bool
         """
@@ -149,7 +149,7 @@ class TreeNode:
                 current_state = Chess.from_onehot(self.state[x+i*dx,y+i*dy])
                 if p == 't':
                     p = 'e'
-                if Chess.char_to_chess(p, self_chess=self.self_chess if by_self_view else ~self.self_chess) != current_state:
+                if Chess.char_to_chess(p, self_chess=self_chess) != current_state:
                     return False
             except IndexError:
                 return False
@@ -205,10 +205,10 @@ class TreeNode:
         for direction in directions:
             for x in range(BOARD_SIZE):
                 for y in range(BOARD_SIZE):
-                    if self.is_match_pattern([x,y],direction,pattern,by_self_view=True):
-                        return self.self_chess
-                    if self.is_match_pattern([x,y],direction,pattern,by_self_view=False):
-                        return ~self.self_chess
+                    if self.is_match_pattern([x,y],direction,pattern,Chess.BLACK):
+                        return Chess.BLACK
+                    if self.is_match_pattern([x,y],direction,pattern,Chess.WHITE):
+                        return Chess.WHITE
         return None
 
 
@@ -247,3 +247,11 @@ class TreeNode:
         while node.get_terminal_player() is None:
             node = node.pop_one_untried_action()
         return node.get_terminal_player(), node
+
+    def back_propagate(self,winner:Chess):
+        node = self
+        node.visits += 1
+        node.value += 1 if Chess.from_onehot(node.state[node.latest_action[0],node.latest_action[1]]) == winner else 0
+        while not self.is_root():
+            node = node.parent
+            node.value += 1 if Chess.from_onehot(node.state[node.latest_action[0], node.latest_action[1]]) == winner else 0
