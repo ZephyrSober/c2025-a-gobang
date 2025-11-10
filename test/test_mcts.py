@@ -14,6 +14,7 @@ from constants import *
 def test_create_tree_node():
     latest_action = [7,7]
     state = create_test_state()
+    set_state(state, 7, 7, Chess.BLACK)
     #create tree node
     node = TreeNode(state,latest_action, None,self_chess=Chess.BLACK)
 
@@ -24,6 +25,7 @@ def test_create_tree_node():
 def test_get_child_node():
     latest_action = [7,7]
     state = create_test_state()
+    set_state(state, 7, 7, Chess.BLACK)
     #create tree node
     node = TreeNode(state,latest_action, None,self_chess=Chess.BLACK)
     #set child node
@@ -43,6 +45,7 @@ def test_get_child_node():
 
 def test_select_single_root():
     state = create_test_state()
+    set_state(state, 7, 7, Chess.BLACK)
     latest_action= [7,7]
     root = TreeNode(state,latest_action,None,self_chess=Chess.BLACK)
     root.apply_action()
@@ -51,6 +54,7 @@ def test_select_single_root():
 
 def test_select_by_ucb():
     state = create_test_state()
+    set_state(state, 7, 7, Chess.BLACK)
     latest_action = [7,7]
     root = TreeNode(state,latest_action,None,self_chess=Chess.BLACK)
     root.visits = 1
@@ -70,6 +74,7 @@ def test_select_by_ucb():
 
 def test_match_pattern_by_self_view():
     state = create_test_state()
+    set_state(state, 7, 7, Chess.BLACK)
     set_state(state,6, 6, Chess.BLACK)
     set_state(state,5, 5, Chess.BLACK)
     set_state(state,4, 4, Chess.BLACK)
@@ -81,6 +86,7 @@ def test_match_pattern_by_self_view():
 
 def test_match_pattern_by_opponent_view():
     state = create_test_state()
+    set_state(state, 7, 7, Chess.BLACK)
     set_state(state,6, 6, Chess.BLACK)
     set_state(state,5, 5, Chess.BLACK)
     set_state(state,4, 4, Chess.BLACK)
@@ -92,6 +98,7 @@ def test_match_pattern_by_opponent_view():
 
 def test_find_pos_by_patterns():
     state = create_test_state()
+    set_state(state, 7, 7, Chess.BLACK)
     set_state(state, 6, 6, Chess.BLACK)
     set_state(state, 5, 5, Chess.BLACK)
     set_state(state, 4, 4, Chess.BLACK)
@@ -107,6 +114,7 @@ def test_find_pos_by_patterns():
 
 def test_get_action_black_live_four():
     state = create_test_state()
+    set_state(state, 7, 7, Chess.BLACK)
     set_state(state, 6, 6, Chess.BLACK)
     set_state(state, 5, 5, Chess.BLACK)
     set_state(state, 4, 4, Chess.BLACK)
@@ -114,4 +122,27 @@ def test_get_action_black_live_four():
     latest_action = [7,7]
     node = TreeNode(state,latest_action,None, Chess.BLACK)
     assert node.pop_one_untried_action().latest_action == [8,8]
-    #todo: 修改测试为冲四，完成简单策略全部
+
+def test_is_terminal():
+    state = create_test_state()
+    set_state(state, 7, 7, Chess.BLACK)
+    set_state(state, 6, 6, Chess.BLACK)
+    set_state(state, 5, 5, Chess.BLACK)
+    set_state(state, 4, 4, Chess.BLACK)
+    latest_action = [7,7]
+    node = TreeNode(state, latest_action, None, Chess.BLACK)
+    winner , is_terminal = node.is_terminal()
+    assert winner is None
+    assert is_terminal == False
+    set_state(state, 3, 3, Chess.BLACK)
+    winner , is_terminal = node.is_terminal()
+    assert winner is Chess.BLACK
+    assert is_terminal == True
+
+def test_stimulate():
+    state = create_test_state()
+    set_state(state, 7, 7, Chess.BLACK)
+    latest_action = [7,7]
+    node = TreeNode(state,latest_action,None,self_chess=Chess.BLACK)
+    winner , final_state= node.stimulate()
+    assert drawOnehot(final_state)

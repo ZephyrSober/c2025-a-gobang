@@ -9,7 +9,4 @@ def create_test_state():
     # create empty state
     state = torch.zeros([BOARD_SIZE, BOARD_SIZE, CHESS_NUM])
     state[:, :, Chess.EMPTY] = 1
-    # create latest action
-    latest_action = [7, 7]
-    set_state(state,latest_action[0],latest_action[1],Chess.BLACK)
     return state

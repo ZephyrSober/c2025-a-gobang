@@ -4,7 +4,8 @@ from enum import Enum,IntEnum
 BOARD_SIZE: Final = 15
 CHESS_NUM: Final = 3
 PATTERN: Final = {'live_three':['tccct','tcctct','tctcct'],
-                  'live_four':['cccct','tcccc','ccctc','ctccc']}#t: target;e: empty; c: self chess
+                  'live_four':['cccct','tcccc','ccctc','ctccc'],
+                  'five':['ccccc']}#t: target;e: empty; c: self chess
 
 class Chess(IntEnum):
     EMPTY = 0

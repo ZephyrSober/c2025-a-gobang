@@ -43,6 +43,20 @@ class TreeNode:
                     self.valid_range[1][1] = j if j > self.valid_range[1][1] else self.valid_range[1][1]
 
     def init_untried_actions(self) -> None:
+        """
+        Initializes the untried actions for the current state, considering specific patterns and positions.
+
+        Summary:
+        This method initializes a list of untried actions for the current game state. It first checks if the action initialization
+        has already been performed. If not, it expands the valid range for exploration and prioritizes certain patterns (like live
+        fours and threes) to find potential moves. For each pattern, it generates new states and adds them as untried actions.
+        If no high-priority patterns are found, it then considers all empty positions within the expanded range as possible
+        untried actions.
+
+        :raises: None
+
+        :returns: None
+        """
         if self.is_action_init:
             return
         self.is_action_init = True
@@ -76,6 +90,26 @@ class TreeNode:
                     self.untried_actions.append(TreeNode(state, [i,j],parent= self,self_chess=self.self_chess))
 
     def find_pos_by_patterns(self,patterns:list,by_self_view:bool) -> list:
+        """
+        Finds positions on the board that match given patterns.
+
+        Detailed summary of the function, explaining its purpose and how it operates.
+        The function iterates over all possible directions and checks if any of the
+        provided patterns match at any position on the board. If a pattern matches,
+        it records the positions of 't' (target) in the pattern. The search can be
+        conducted from the perspective of the current player or the opponent based
+        on the `by_self_view` parameter.
+
+        :param patterns: A list of string patterns to search for on the board.
+        :type patterns: list
+        :param by_self_view: A boolean indicating whether to search from the
+                             perspective of the current player (`True`) or the
+                             opponent (`False`).
+        :type by_self_view: bool
+        :return: A list of [x, y] coordinate pairs where the target 't' in the
+                 patterns is found on the board.
+        :rtype: list
+        """
         directions = [[1,0],[0,1],[1,1],[-1,1]]
         result = []
         for direction in directions:
@@ -89,6 +123,16 @@ class TreeNode:
         return result
 
     def is_match_pattern(self,pos,direction,pattern:str,by_self_view:bool) -> bool:
+        """
+        Checks if the given pattern matches the chess pieces in the specified direction from the starting position.
+
+        :param pos: The starting position as a tuple (x, y).
+        :param direction: The direction to check the pattern as a tuple (dx, dy).
+        :param pattern: A string representing the pattern of chess pieces.
+        :param by_self_view: A boolean indicating whether to use the self view for matching.
+        :returns: True if the pattern matches, False otherwise.
+        :rtype: bool
+        """
         x,y = pos
         dx, dy = direction
         pattern = list(pattern)
@@ -103,8 +147,6 @@ class TreeNode:
                 return False
         return True
 
-
-
     def get_child_nodes(self) -> list:
         if len(self.child_nodes) != 0:
             return self.child_nodes
@@ -113,6 +155,11 @@ class TreeNode:
             return []
 
     def pop_one_untried_action(self) ->'TreeNode':
+        """
+        Removes and returns one untried action from the list of untried actions.
+
+        :returns: A 'TreeNode' representing the next untried action, or None if no untried actions are left.
+        """
         if not self.is_action_init:
             self.init_untried_actions()
         if self.get_untried_actions_length() != 0:
@@ -136,10 +183,43 @@ class TreeNode:
     def is_root(self)->bool:
         return True if self.parent is None else False
 
+    def is_terminal(self):
+        """
+        Checks if the current board state is a terminal state, meaning one of the players
+        has won by forming a specific pattern on the board. The function examines all possible
+        directions and positions on the board to find a winning pattern for either player.
+
+        :return: A tuple where the first element is the winning player (or None if no winner)
+                 and the second element is a boolean indicating if the game is over.
+        """
+        directions = [[1,0],[0,1],[1,1],[-1,1]]
+        pattern = PATTERN["five"][0]
+        for direction in directions:
+            for x in range(BOARD_SIZE):
+                for y in range(BOARD_SIZE):
+                    if self.is_match_pattern([x,y],direction,pattern,by_self_view=True):
+                        return self.self_chess, True
+                    if self.is_match_pattern([x,y],direction,pattern,by_self_view=False):
+                        return ~self.self_chess, True
+        return None, False
+
+
     def ucb(self,all_time):
         return self.value/self.visits + UCB_C*(log(all_time)/self.visits)**0.5
 
     def select(self,all_time):
+        """
+        Selects the best child node based on UCB (Upper Confidence Bound) value.
+
+        :param all_time: Total time or iterations for the UCB calculation.
+        :type all_time: int
+        :return: The selected node with the highest UCB value or self if there are untried actions.
+        :rtype: Node
+
+        . note::
+           If there are untried actions, the method returns the current node itself.
+           Otherwise, it traverses through the child nodes to find the one with the maximum UCB value and continues the selection process from that node.
+        """
         if self.get_untried_actions_length() != 0:
             return self
         else:
