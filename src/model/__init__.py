@@ -1,1 +1,1 @@
-from .gobang import gobang
+from .GoNet import GoNet

@@ -10,6 +10,7 @@ from sympy import false
 from sympy.strategies.core import switch
 
 from constants import Chess
+from src.model.GoNet import GoNet
 from utils import drawOnehot, set_state
 from math import log
 
@@ -20,7 +21,7 @@ sys.path.insert(0, project_root)
 from constants import *
 
 class TreeNode:
-    def __init__(self, state:torch.Tensor, latest_action:list, parent:'TreeNode'):
+    def __init__(self, state:torch.Tensor, latest_action:list, parent: 'TreeNode | None'):
         self.state = state
         self.valid_range = [[7,7],[7,7]]
         self.parent = parent
@@ -34,6 +35,9 @@ class TreeNode:
         self.visits = 0
         self.init_valid_range()
 
+    @property
+    def __repr__(self):
+        return f"TreeNode(value={self.value}, visits={self.visits})"
 
     def init_valid_range(self):
         for i in range(BOARD_SIZE):
@@ -59,6 +63,7 @@ class TreeNode:
 
         :returns: None
         """
+
         if self.is_action_init:
             return
         self.is_action_init = True
@@ -162,7 +167,7 @@ class TreeNode:
             print("no child node")
             return []
 
-    def pop_one_untried_action(self) ->'TreeNode':
+    def pop_one_untried_action(self) ->'TreeNode | None':
         """
         Removes and returns one untried action from the list of untried actions.
 
@@ -215,7 +220,7 @@ class TreeNode:
     def ucb(self,all_time):
         return self.value/self.visits + UCB_C*(log(all_time)/self.visits)**0.5
 
-    def select(self,all_time):
+    def select(self,all_time) -> 'TreeNode':
         """
         Selects the best child node based on UCB (Upper Confidence Bound) value.
 
@@ -243,15 +248,61 @@ class TreeNode:
         return self.apply_action()
 
     def stimulate(self) -> tuple[Chess | int | None, 'TreeNode']:
-        node = self
+        node = TreeNode(self.state.clone(),self.latest_action,None)
         while node.get_terminal_player() is None:
-            node = node.pop_one_untried_action()
+            #to get one untried action
+            expand_valid_range = [[max(0, node.valid_range[0][0] - EXPLORE_EXPANSION),
+                                   max(0, node.valid_range[1][0] - EXPLORE_EXPANSION)],
+                                  [min(14, node.valid_range[0][1] + EXPLORE_EXPANSION + 1),
+                                   min(14, node.valid_range[1][1] + EXPLORE_EXPANSION + 1)]]
+
+            self_chess = Chess.from_onehot(node.state[node.latest_action[0], node.latest_action[1]])
+            priority_rules = [(PATTERN["live_four"], self_chess),
+                              (PATTERN["live_four"], ~self_chess),
+                              (PATTERN["live_three"], self_chess),
+                              (PATTERN["live_three"], ~self_chess)]
+            action = []
+            for pattern, chess_to_judge in priority_rules:
+                result = node.find_pos_by_patterns(pattern, chess_to_judge)
+                if len(result) != 0:
+                    action = result[randint(0,len(result)-1)]
+                    break
+            if len(action)==0:
+                for i in range(expand_valid_range[0][0], expand_valid_range[1][0]):
+                    for j in range(expand_valid_range[0][1], expand_valid_range[1][1]):
+                        try:
+                            if Chess.from_onehot(node.state[i, j]) == Chess.EMPTY:
+                                result.append([i,j])
+                        except IndexError:
+                            print("index error:", i, j)
+                action = result[randint(0,len(result)-1)]
+
+            #to apply action
+            set_state(node.state,action[0],action[1],~Chess.from_onehot(node.state[node.latest_action[0],node.latest_action[1]]))
+            node.latest_action = action
+            node.init_valid_range()
+            # drawOnehot(node.state)
         return node.get_terminal_player(), node
 
     def back_propagate(self,winner:Chess):
         node = self
         node.visits += 1
         node.value += 1 if Chess.from_onehot(node.state[node.latest_action[0],node.latest_action[1]]) == winner else 0
-        while not self.is_root():
+        while not node.is_root():
             node = node.parent
+            node.visits += 1
             node.value += 1 if Chess.from_onehot(node.state[node.latest_action[0], node.latest_action[1]]) == winner else 0
+
+    def decide(self,loops: int):
+        ValueNet = GoNet(input_channels=3)
+        ValueNet.load()
+        ValueNet.eval()
+        for i in range(loops):
+            selected = self.select(i)
+            stimulate_base = selected.expand()
+            with torch.no_grad():
+                predict_value = ValueNet(stimulate_base.state)
+            winner = Chess.BLACK if predict_value > 0 else Chess.WHITE
+            stimulate_base.back_propagate(winner)
+            print("round",i,"finished\n")
+        return max(self.child_nodes,key=lambda x:x.visits)

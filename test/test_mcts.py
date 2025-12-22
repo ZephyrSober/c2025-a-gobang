@@ -92,8 +92,8 @@ def test_match_pattern_by_opponent_view():
     set_state(state,3, 3, Chess.WHITE)
     latest_action = [7,7]
     node = TreeNode(state,latest_action,None)
-    assert node.is_match_pattern([4,4], [1,1], PATTERN['live_four'][0],Chess.BLACK) == False
-    assert node.is_match_pattern([4,4], [1,1], PATTERN['live_four'][0],Chess.WHITE) == True
+    assert node.is_match_pattern([4,4], [1,1], PATTERN['live_four'][0],Chess.BLACK) == True
+    assert node.is_match_pattern([4,4], [1,1], PATTERN['live_four'][0],Chess.WHITE) == False
 
 def test_find_pos_by_patterns():
     state = create_test_state()
@@ -106,8 +106,8 @@ def test_find_pos_by_patterns():
     set_state(state, 4, 6, Chess.BLACK)
     latest_action = [7, 7]
     node = TreeNode(state, latest_action, None)
-    assert node.find_pos_by_patterns(PATTERN['live_four'],Chess.WHITE) == [[8,8]]
-    assert node.find_pos_by_patterns(PATTERN['live_three'],Chess.WHITE) == [[4,3],[4,7]]
+    assert node.find_pos_by_patterns(PATTERN['live_four'],Chess.BLACK) == [[8,8]]
+    assert node.find_pos_by_patterns(PATTERN['live_three'],Chess.BLACK) == [[4,3],[4,7]]
 
 
 
@@ -161,5 +161,15 @@ def test_back_propagate():
     assert node2.value ==0
     assert node1.value == 1
     assert root.value == 0
-#todo: to fix restructuring bugs and pass test_back_propagate
-#todo: a tool set to monitor the tree flow
+
+def test_mcts_decide():
+    state = create_test_state()
+    set_state(state, 7, 7, Chess.WHITE)
+    latest_action = [7,7]
+    root = TreeNode(state,latest_action,None)
+    decision = root.decide(loops= 10)
+    assert Chess.from_onehot(decision.state[decision.latest_action[0],latest_action[1]]) == Chess.BLACK
+    drawOnehot(decision.state)
+#todo: to add decision net
+#todo: how to polish the stimulate process
+#todo: how to track the process of simulate
